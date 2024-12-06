@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Płytek z Kratownicą</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px;
+            background-color: #f4f4f9;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+            max-width: 250px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .result {
+            font-size: 18px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .material-inputs {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .material-inputs input {
+            margin: 5px 0;
+        }
+
+        @media screen and (max-width: 600px) {
+            input, button {
+                max-width: 100%;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .result {
+                font-size: 16px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Kalkulator Płytek z Kratownicą</h1>
+        <p>Oblicz, ile płytek wytniesz z płyty roboczej i zobacz graficzną kratownicę.</p>
+
+        <label for="boardWidth">Wielkość pola roboczego (szerokość płyty) [cm]:</label>
+        <input type="number" id="boardWidth" placeholder="Szerokość płyty">
+
+        <label for="boardHeight">Wielkość pola roboczego (wysokość płyty) [cm]:</label>
+        <input type="number" id="boardHeight" placeholder="Wysokość płyty">
+
+        <label for="tileWidth">Wymiary płytki (szerokość) [cm]:</label>
+        <input type="number" id="tileWidth" placeholder="Szerokość płytki">
+
+        <label for="tileHeight">Wymiary płytki (wysokość) [cm]:</label>
+        <input type="number" id="tileHeight" placeholder="Wysokość płytki">
+
+        <div class="material-inputs">
+            <h3>Wymiary płyty materiałowej:</h3>
+            <div id="materialInputs">
+                <div class="materialInput">
+                    <label for="materialWidth">Szerokość płyty [cm]:</label>
+                    <input type="number" class="materialWidth" placeholder="Szerokość płyty">
+                    <label for="materialHeight">Wysokość płyty [cm]:</label>
+                    <input type="number" class="materialHeight" placeholder="Wysokość płyty">
+                </div>
+            </div>
+            <button onclick="addMaterialPlate()">Dodaj płytę materiałową</button>
+        </div>
+
+        <button onclick="calculateTiles()">Oblicz ilość płytek</button>
+
+        <div class="result" id="result"></div>
+
+        <canvas id="gridCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <script>
+        function addMaterialPlate() {
+            const materialInputs = document.getElementById("materialInputs");
+            const newMaterialInput = document.createElement("div");
+            newMaterialInput.classList.add("materialInput");
+            newMaterialInput.innerHTML = ` 
+                <label for="materialWidth">Szerokość płyty [cm]:</label>
+                <input type="number" class="materialWidth" placeholder="Szerokość płyty">
+                <label for="materialHeight">Wysokość płyty [cm]:</label>
+                <input type="number" class="materialHeight" placeholder="Wysokość płyty">
+            `;
+            materialInputs.appendChild(newMaterialInput);
+        }
+
+        function calculateTiles() {
+            const boardWidth = parseFloat(document.getElementById("boardWidth").value);
+            const boardHeight = parseFloat(document.getElementById("boardHeight").value);
+            const tileWidth = parseFloat(document.getElementById("tileWidth").value);
+            const tileHeight = parseFloat(document.getElementById("tileHeight").value);
+
+            const materialPlates = document.querySelectorAll(".materialInput");
+            const materials = [];
+            materialPlates.forEach(plate => {
+                const materialWidth = parseFloat(plate.querySelector(".materialWidth").value);
+                const materialHeight = parseFloat(plate.querySelector(".materialHeight").value);
+                if (!isNaN(materialWidth) && !isNaN(materialHeight)) {
+                    materials.push({ width: materialWidth, height: materialHeight });
+                }
+            });
+
+            if (isNaN(boardWidth) || isNaN(boardHeight) || isNaN(tileWidth) || isNaN(tileHeight)) {
+                document.getElementById("result").innerText = "Proszę wprowadzić wszystkie dane!";
+                return;
+            }
+
+            // Obliczanie liczby płytek w poziomie (szerokość)
+            const numTilesInWidth = Math.floor(boardWidth / tileWidth);
+            const totalTileWidth = numTilesInWidth * tileWidth;
+            const remainingWidth = boardWidth - totalTileWidth;
+
+            // Obliczanie grubości pionowych listewek
+            const verticalGap = remainingWidth / (numTilesInWidth - 1);
+
+            // Obliczanie liczby wierszy płytek (wysokość)
+            const numTilesInHeight = Math.floor(boardHeight / tileHeight);
+            const totalTileHeight = numTilesInHeight * tileHeight;
+            const remainingHeight = boardHeight - totalTileHeight;
+
+            // Obliczanie grubości ramki (górna i dolna)
+            const frameThickness = remainingHeight / 2;
+
+            // Liczenie dostępnego materiału
+            let materialArea = 0;
+            materials.forEach(material => {
+                materialArea += material.width * material.height;
+            });
+
+            const requiredArea = numTilesInWidth * numTilesInHeight * tileWidth * tileHeight;
+            const enoughMaterial = materialArea >= requiredArea;
+
+            // Wyświetlanie wyników
+            document.getElementById("result").innerHTML = `
+                Potrzebujesz ${numTilesInWidth * numTilesInHeight} płytek.<br>
+                Powierzchnia materiału: ${materialArea.toFixed(2)} cm²<br>
+                Powierzchnia wymagana: ${requiredArea.toFixed(2)} cm²<br>
+                ${enoughMaterial ? "Materiał wystarczy na wycięcie płytek." : "Materiały są za małe, aby wyciąć wszystkie płytki."}<br>
+                Grubość pionowej listewki: ${verticalGap.toFixed(2)} cm.<br>
+                Grubość górnej/dolnej ramki: ${frameThickness.toFixed(2)} cm.
+            `;
+
+            // Rysowanie kratownicy
+            drawGrid(numTilesInWidth, numTilesInHeight, tileWidth, tileHeight, verticalGap, frameThickness);
+        }
+
+        function drawGrid(numTilesInWidth, numTilesInHeight, tileWidth, tileHeight, verticalGap, frameThickness) {
+            const canvas = document.getElementById("gridCanvas");
+            const ctx = canvas.getContext("2d");
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Rysowanie ramki wokół pola roboczego
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, numTilesInWidth * (tileWidth + verticalGap) - verticalGap, numTilesInHeight * tileHeight);
+
+            // Rysowanie płytek z pionowymi listewkami
+            for (let row = 0; row < numTilesInHeight; row++) {
+                for (let col = 0; col < numTilesInWidth; col++) {
+                    const x = col * (tileWidth + verticalGap);
+                    const y = row * tileHeight;
+                    ctx.strokeRect(x, y, tileWidth, tileHeight);
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
